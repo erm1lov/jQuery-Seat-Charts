@@ -1,15 +1,15 @@
 /*!
- * jQuery-Seat-Charts v1.1.5
- * https://github.com/mateuszmarkowski/jQuery-Seat-Charts
+ * jQuery-Seat-Charts v1.6.0
+ * https://github.com/erm1lov/jQuery-Seat-Charts
  *
  * Copyright 2013, 2016 Mateusz Markowski
  * Released under the MIT license
  */
 
 (function($) {
-		
-	//'use strict';	
-		
+	
+	//'use strict';
+	
 	$.fn.seatCharts = function (setup) {
 
 		//if there's seatCharts object associated with the current element, return it
@@ -89,8 +89,8 @@
 						.text(fn.settings.label)
 						.addClass(['seatCharts-seat', 'seatCharts-cell', 'available'].concat(
 							//let's merge custom user defined classes with standard JSC ones
-							fn.settings.classes, 
-							typeof seatChartsSettings.seats[fn.settings.character] == "undefined" ? 
+							fn.settings.classes,
+							typeof seatChartsSettings.seats[fn.settings.character] == "undefined" ?
 								[] : seatChartsSettings.seats[fn.settings.character].classes
 							).join(' '));
 					
@@ -104,7 +104,7 @@
 					};
 					
 					fn.node = function() {
-						return fn.settings.$node;						
+						return fn.settings.$node;
 					};
 
 					/*
@@ -142,7 +142,7 @@
 					//either set or retrieve
 					fn.status = function() {
 	
-						return fn.settings.status = arguments.length == 1 ? 
+						return fn.settings.status = arguments.length == 1 ?
 							fn.style(arguments[0]) : fn.settings.status;
 					};
 					
@@ -173,9 +173,9 @@
 							};
 							
 						});
-					//the below will become seatSettings, character, seat thanks to the immediate function		
+					//the below will become seatSettings, character, seat thanks to the immediate function
 					})(seatChartsSettings.seats, fn.settings.character, fn);
-							
+					
 					fn.node()
 						//the first three mouse events are simple
 						.on('click',      fn.click)
@@ -203,7 +203,7 @@
 										
 										/*
 										 * This is a recursive, immediate function which searches for the first "focusable" row.
-										 * 
+										 *
 										 * We're using immediate function because we want a convenient access to some DOM elements
 										 * We're using recursion because sometimes we may hit an empty space rather than a seat.
 										 *
@@ -225,7 +225,7 @@
 													//if up arrow, then decrement the index, if down increment it
 													$rows.index($currentRow) + (e.which == 38 ? (-1) : (+1))
 												);
-											}												
+											}
 											
 											//now that we know the row, let's get the seat using the current column position
 											$newSeat = $newRow.find('.seatCharts-seat,.seatCharts-space').eq($seats.index($seat));
@@ -258,8 +258,8 @@
 										
 										//update our "aria" reference with the new seat id
 										seatCharts.attr('aria-activedescendant', $newSeat.attr('id'));
-																			
-										break;										
+										
+										break;
 									//LEFT & RIGHT
 									case 37:
 									case 39:
@@ -289,21 +289,21 @@
 										if (!$newSeat.length) {
 											return;
 										}
-											
+										
 										//handle focus
-										seat.blur();	
+										seat.blur();
 										seats[$newSeat.attr('id')].focus();
 										$newSeat.focus();
 										
 										//update our "aria" reference with the new seat id
 										seatCharts.attr('aria-activedescendant', $newSeat.attr('id'));
-										break;	
+										break;
 									default:
 										break;
 								
 								}
 							};
-								
+							
 						})(fn, fn.node()));
 						//.appendTo(seatCharts.find('.' + row));
 
@@ -313,7 +313,7 @@
 		fn.addClass('seatCharts-container');
 		
 		//true -> deep copy!
-		$.extend(true, settings, setup);		
+		$.extend(true, settings, setup);
 		
 		//Generate default row ids unless user passed his own
 		settings.naming.rows = settings.naming.rows || (function(length) {
@@ -341,23 +341,105 @@
 				$headerRow.append($('<div></div>').addClass('seatCharts-cell'));
 			}
 			
-				
 			$.each(settings.naming.columns, function(index, value) {
+				
+				if(value == '-') { // take dash as a blank columns
+					value = ''
+				}
+				
 				$headerRow.append(
 					$('<div></div>')
 						.addClass('seatCharts-cell')
 						.text(value)
-				);
+				);	
 			});
 		}
 		
 		fn.append($headerRow);
+    
+		// build up inner map for other use
+		var emptyMap = {};
+		$.each(settings.map, function(row, characters) {
+			if(!characters) return;
+			if(characters.match(/[^A-Za-z0-9_-]/)){
+				settings.map.splice(row, 1); // remove this line from seat map
+				emptyMap[row] = characters;
+			}
+		});
 		
 		//do this for each map row
 		$.each(settings.map, function(row, characters) {
 
 			var $row = $('<div></div>').addClass('seatCharts-row');
+      
+		// if any empty row exists then add it up.
+		if(emptyMap[row]){
+			var fm =emptyMap[row];
+			if(fm){
+			var $f = $('<div></div>').addClass('seatCharts-row');
+			// fill up the slot for numbering
+			$f.append($('<div></div>').addClass('seatCharts-cell seatCharts-space'));
+			
+			// see if there any facility to add up
+			var fac = settings.facilityMap[row]||undefined;
+			
+			$.each(fm.match(/[+*]{1}(\[[0-9a-z_]{0,}(,[0-9a-z_ ]+)?\])?/gi), function (column, characterParams) {
+				var matches         = characterParams.match(/([+*]{1})(\[([0-9a-z_ ,]+)\])?/i),
+				//no matter if user specifies [] params, the character should be in the second element
+				character       = matches[1],
+				//check if user has passed some additional params to override id or label
+				params          = typeof matches[3] !== 'undefined' ? matches[3].split(',') : [],
+				//id param should be first
+				overrideId      = params.length ? params[0] : null,
+				//label param should be second
+				overrideLabel   = params.length === 2 ? params[1] : null;
 				
+				// Get symbol from header array by column
+				var header = column==0?settings.naming.columns[0]:settings.naming.columns[column];
+				
+				$f.append(character != '+' ?
+				//if the character is not an underscore (empty space)
+				(function(naming) {
+					
+					//so users don't have to specify empty objects
+					settings.seats[character] = character in settings.seats ? settings.seats[character] : {};
+					var f = settings.seats[character];
+					// if($.inArray(header,fac.cordinates) != -1){
+	// 								f = fac;
+	// 							}
+					// set up attributes for match character
+					return $('<div></div>').addClass('seatCharts-cell '+f.classes).attr('id',row+header).text(f.text);
+					
+				})() :
+				//this is just an empty space (_)
+				$('<div></div>').addClass('seatCharts-cell seatCharts-space').attr('id',row+header)
+				);
+			});
+			fn.append($f);
+			
+			}else{
+			// append a blank row
+			fn.append($('<div></div>').addClass('seatCharts-row'));
+			}
+		}
+      
+		// set up elements according to settings in facility map
+		if(fac){
+			if( Object.prototype.toString.call( fac.cordinates ) === '[object Array]' ) {
+			var $target;
+			$.each(fac.cordinates, function(index, col){
+				if(index == 0){
+				$target= $('#'+row+col); //save the first element
+				return;
+				}
+				$('#'+row+col).remove(); //remove the rests
+				// console.log($('#'+row+col))
+			})
+			$target.addClass(fac.classes).text(fac.text); // set it up
+			}
+		}
+      
+			
 			if (settings.naming.left) {
 				$row.append(
 					$('<div></div>')
@@ -383,9 +465,9 @@
 			 * Allowed characters in labels are: 0-9, a-z, A-Z, _, ' ' (space)
 			 *
 			 */
-			 
-			$.each(characters.match(/[a-z_]{1}(\[[0-9a-z_]{0,}(,[0-9a-z_ ]+)?\])?/gi), function (column, characterParams) { 
-				var matches         = characterParams.match(/([a-z_]{1})(\[([0-9a-z_ ,]+)\])?/i),
+      
+      $.each(characters.match(/[a-z_-]{1}(\[[0-9a-z_]{0,}(,[0-9a-z_ ]+)?\])?/gi), function (column, characterParams) {
+        			var matches	= characterParams.match(/([a-z_-]{1})(\[([0-9a-z_ ,]+)\])?/i),
 					//no matter if user specifies [] params, the character should be in the second element
 					character       = matches[1],
 					//check if user has passed some additional params to override id or label
@@ -394,7 +476,13 @@
 					overrideId      = params.length ? params[0] : null,
 					//label param should be second
 					overrideLabel   = params.length === 2 ? params[1] : null;
-								
+        
+				// add a blank cell if any dash exists
+				if(character=='-'){
+				$row.append($('<div></div>').addClass('seatCharts-cell seatCharts-space'));
+				return;
+				}
+					
 				$row.append(character != '_' ?
 					//if the character is not an underscore (empty space)
 					(function(naming) {
@@ -417,7 +505,7 @@
 						
 					})(settings.naming) :
 					//this is just an empty space (_)
-					$('<div></div>').addClass('seatCharts-cell seatCharts-space')	
+					$('<div></div>').addClass('seatCharts-cell seatCharts-space')
 				);
 			});
 			
@@ -442,7 +530,7 @@
 							$('<div></div>')
 								//merge user defined classes with our standard ones
 								.addClass(['seatCharts-seat', 'seatCharts-cell', item[1]].concat(
-									settings.classes, 
+									settings.classes,
 									typeof settings.seats[item[0]] == "undefined" ? [] : settings.seats[item[0]].classes).join(' ')
 								)
 						)
@@ -467,7 +555,7 @@
 			if (fn.attr('aria-activedescendant')) {
 				seats[fn.attr('aria-activedescendant')].blur();
 			}
-				
+			
 			fn.find('.seatCharts-seat:not(.seatCharts-space):first').focus();
 			seats[seatIds[0]].focus();
 
@@ -604,7 +692,7 @@
 			get   : function(seatsIds) {
 				var fn = this;
 
-				return typeof seatsIds == 'string' ? 
+				return typeof seatsIds == 'string' ?
 					fn.seats[seatsIds] : (function() {
 						
 						var seatSet = fn.set();
